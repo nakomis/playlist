@@ -218,3 +218,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Planning
+PLAN.md
+
+# Coverage
+coverage/
+lcov.info
+
+# Node / web
+node_modules/
+web/dist/
+
+# Local state
+data/
+*.sqlite
+*.sqlite3
+
+# Headphone test kit output
+tools/headphone-test/out/
+tools/headphone-test/tmp/
