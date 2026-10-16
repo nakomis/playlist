@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+# The repo-root .gitignore ignores lib/ (Python); this one is source.
+!src/lib/
