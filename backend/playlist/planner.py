@@ -10,6 +10,7 @@ is stretched by a few per cent at most.
 from __future__ import annotations
 
 import random
+import re
 from dataclasses import dataclass, field
 from statistics import median
 
@@ -20,6 +21,12 @@ MAX_STRETCH = 0.08  # never stretch a track more than 8%
 DEFAULT_TRANSITION_BEATS = 32  # eight bars of overlap
 MIN_SEGMENT_BEATS = 64  # a track must contribute at least 16 bars of its own
 MIN_GRID_CONFIDENCE = 0.5  # below this the beat grid can't be trusted to mix on
+MIN_TRACK_S = 150  # shorter than this is an edit or a slice, too short to mix well
+
+# A continuous DJ mix sold as slices ("Heavy (Mixed)", album "... (Mixed by X)").
+# Each slice starts and ends inside the DJ's own transitions, so overlapping
+# two of them layers up to four songs at once. They're never mix material.
+_DJ_MIX = re.compile(r"\((?:dj )?mixed\)|\bmixed by\b|\bcontinuous mix\b|\bdj mix\b", re.I)
 
 
 class PlanError(ValueError):
@@ -124,7 +131,13 @@ def _usable(c: Candidate, req: PlanRequest) -> bool:
         return False
     if a.grid_confidence < MIN_GRID_CONFIDENCE:
         return False
+    if is_dj_mix(t) or a.beats[-1] - a.beats[0] < MIN_TRACK_S:
+        return False
     return _segment_beats(c) >= MIN_SEGMENT_BEATS + req.transition_beats
+
+
+def is_dj_mix(t: Track) -> bool:
+    return bool(_DJ_MIX.search(t.title) or _DJ_MIX.search(t.album))
 
 
 def _segment_beats(c: Candidate) -> int:

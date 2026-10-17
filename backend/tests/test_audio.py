@@ -72,7 +72,7 @@ def library(tmp_path, make_mp3):
     folder = tmp_path / "lib"
     folder.mkdir()
     for i, bpm in enumerate([126.0, 126.5, 127.0, 126.0, 127.5, 126.5]):
-        src = make_mp3(f"t{i}", bpm, 150, pitch=200 + 30 * i)
+        src = make_mp3(f"t{i}", bpm, 165, pitch=200 + 30 * i)
         src.rename(folder / src.name)
     settings = Settings(data_dir=tmp_path / "data", segment_minutes=2.0, libraries=("Music",))
     cache = Cache(settings.db_path)

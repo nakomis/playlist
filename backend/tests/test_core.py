@@ -104,6 +104,19 @@ def test_plan_filters_and_errors():
         planner.plan_mix(weak, PlanRequest(duration_s=600))
 
 
+def test_plan_skips_short_tracks_and_dj_mix_slices():
+    cands = _cands()
+    short = Candidate(fake_track(90), fake_analysis(128, 60))  # a one-minute slice
+    sliced = _cands(n=1)[0]
+    sliced.track.title, sliced.track.id = "Heavy (Mixed)", "t91"
+    album = _cands(n=1)[0]
+    album.track.album, album.track.id = "A State of Trance 2025 (Mixed by Armin van Buuren)", "t92"
+    plan = planner.plan_mix(cands + [short, sliced, album], PlanRequest(duration_s=60 * 60))
+    assert not {"t90", "t91", "t92"} & {i.track_id for i in plan.items}
+    assert planner.is_dj_mix(sliced.track) and planner.is_dj_mix(album.track)
+    assert not planner.is_dj_mix(cands[0].track)
+
+
 def test_manifest_publishable_only_when_all_cc():
     cands = _cands(n=6)
     plan = planner.plan_mix(cands, PlanRequest(duration_s=10 * 60))
