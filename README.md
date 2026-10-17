@@ -1,5 +1,7 @@
 # Playlist — beat-matched continuous mixes from Plex, written straight to swimming headphones
 
+<img src="docs/logo.png" alt="Playlist logo" width="200" align="right"/>
+
 ## Support
 
 If you find this useful, please consider buying me a coffee:

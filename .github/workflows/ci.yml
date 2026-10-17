@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Check out the post-merge state on PRs so CI validates what will land on main,
+# not just the branch tip. Falls back to the commit SHA on push/workflow_dispatch.
+env:
+  CHECKOUT_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
+
+# Deploys are Ansible runs from home-servers (Mace), not CI.
+jobs:
+  backend:
+    name: Backend (ruff, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+      - name: Install ffmpeg and Rubber Band
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg rubberband-cli
+      - uses: astral-sh/setup-uv@v10.3.0  # no moving major tag upstream
+        with:
+          python-version: '3.11'
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run pytest
+
+  web:
+    name: Web (lint, typecheck, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '25'
+          cache: 'pnpm'
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  image:
+    name: Docker image
+    runs-on: ubuntu-latest
+    needs: [backend, web]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.CHECKOUT_REF }}
+      - name: Build
+        run: docker build -t playlist:ci .
+      - name: Smoke test
+        run: |
+          docker run -d --name pl -p 8000:8000 --tmpfs /data:uid=1000 playlist:ci
+          for i in $(seq 1 30); do curl -fs localhost:8000/api/health && exit 0; sleep 2; done
+          docker logs pl; exit 1
+
+  ci-status:
+    name: CI Status
+    runs-on: ubuntu-latest
+    needs: [backend, web, image]
+    if: always()
+    steps:
+      - name: Fail unless every job passed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
